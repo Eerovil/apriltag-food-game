@@ -35,6 +35,14 @@
       }
       #vue-app {
         height: 100%;
+        font-size: 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+      }
+      #vue-app > div {
+        margin: 1rem;
       }
     </style>
   </head>
@@ -138,16 +146,16 @@
 
 
     <template id="template">
-        <div>Day status: {{ dayStatus }} <progress min="0" max="100" :value="dayStatusFilled"></progress></div>
-        <div>Collected fruits: {{ collectedFruits.length }}</div>
+        <div>{{ dayStatusText }} <progress min="0" max="100" :value="dayStatusFilled"></progress></div>
+        <div>Ruokaa: {{ collectedFruits.length }}</div>
         <div v-if="!currentPos">
           <div>?</div>
         </div>
         <div v-else-if="currentPos == 'home'">
-          <div>Kotona</div>
+          <!-- <div>Kotona</div>
           <div v-if="dayStatus == 'evening'">Syöntinäkymä</div>
           <div v-else-if="dayStatus == 'night'">Nukkumaan</div>
-          <div v-else>Mene keräämään ruokaa</div>
+          <div v-else>Mene keräämään ruokaa</div> -->
         </div>
         <div v-else-if="currentPos == 'food'">
           <div>Ruoka {{ posContent.food }}</div>
@@ -158,6 +166,7 @@
         <div v-else-if="currentPos == 'password'">
           <div>Salasana</div>
         </div>
+        <div v-if="speakText">{{ speakText }}</div>
     </template>
     <script>
       const { createApp } = Vue;
@@ -183,6 +192,19 @@
             collectedFruits: [],
 
             event: null,
+            speakText: null,
+          }
+        },
+        computed: {
+          dayStatusText() {
+            if (this.dayStatus == 'day') {
+              return 'Päivä';
+            } else if (this.dayStatus == 'evening') {
+              return 'Ilta';
+            } else if (this.dayStatus == 'night') {
+              return 'Yö';
+            }
+            return this.dayStatus;
           }
         },
         mounted() {
@@ -195,7 +217,7 @@
             // Update day status loading bar
             if (this.dayStatus && this.dayStatusEndTime) {
               const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
-              const maxSeconds = this.dayStatusSeconds[this.dayStatus];
+              const maxSeconds = this.dayStatusSeconds[this.dayStatus] - 10;
               this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
               if (this.dayStatusFilled >= 100 && this.dayStatus == 'night') {
                 // Simulate a scan of home
@@ -216,6 +238,7 @@
             if (data.speak) {
               const event = new CustomEvent('speak', { detail: data.speak });
               window.document.dispatchEvent(event);
+              this.speakText = data.speak
             }
 
             if (data.dayStatus) {
