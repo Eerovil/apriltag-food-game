@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Instascan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=0.5, user-scalable=no">
+    <link rel="manifest" href="/static/manifest.json">
+    <script src="https://unpkg.com/shake-detector"></script>
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        text-align: center;
+        height: 100%;
+      }
+      .video {
+        display: none;
+        width: 100%;
+        height: 20%;
+      }
+      .video canvas {
+        height: 100%;
+      }
+      #wrapper {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrapper">
+      <video id="webcam_canvas" playsinline autoplay style="display:none"></video>
+      <div class="video">
+        <canvas id="out_canvas"></canvas>
+      </div>
+
+      <p style="display: none;">Camera Parameters (valid json, as given by <a href="https://www.calibdb.net/">calibdb</a>):<br/>
+        <textarea id="camera_info" rows="10" cols="100">
+          {
+               "camera_matrix": [
+                   [
+                       939.3384407933022,
+                       0,
+                       640.347854307481
+                   ],
+                   [
+                       0,
+                       938.2560270381138,
+                       340.7192620859387
+                   ],
+                   [
+                       0,
+                       0,
+                       1
+                   ]
+               ],
+               "img_size": [
+                   1280,
+                   720
+               ]
+           }
+        </textarea>
+       </p>
+
+    </div>
+    <script type="text/javascript">
+      let context = null;
+
+      const beep = (freq = 320, duration = 100, vol = 5) => {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.connect(gain);
+          oscillator.frequency.value = freq;
+          oscillator.type = "square";
+          gain.connect(context.destination);
+          gain.gain.value = vol * 0.01;
+          oscillator.start(context.currentTime);
+          oscillator.stop(context.currentTime + duration * 0.001);
+      }
+      const melody = (beeps) => {
+        context = new AudioContext();
+        let time = 0;
+        for (const _beep of beeps) {
+          if (!_beep[0]) {
+            // No freq, just add time
+          } else {
+            console.log("Beep", _beep, time);
+            setTimeout(() => beep(_beep[0], _beep[1]), time);
+          }
+          time += _beep[1];
+        }
+      }
+      const speak = (text) => {
+        console.log(text);
+        const utter = new SpeechSynthesisUtterance();
+        utter.lang = 'fi-FI';
+        utter.text = text;
+        utter.rate = 1.2;
+        utter.pitch = 0.8;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(utter);
+      }
+      if (window.speechSynthesis) {
+        speechSynthesis.getVoices();
+      }
+      let lastDetId = null
+      window.document.addEventListener('speak', (data) => speak(data.detail), false)
+
+
+      window.handleDetected = (det) => {
+        const content = `http://koodi-${det.id + 1}`
+        if (content == lastDetId) {
+          return
+        }
+        lastDetId = content
+        setTimeout(() => {
+          lastDetId = null
+        }, 3000)
+        playMusic();
+        melody([[440, 100], [554.37, 100], [659.25, 100]])
+        axios.post('/api/mark', {barcode: content}).then(function (response) {
+          if (window.speechSynthesis) {
+            speak(response.data);
+          }
+        }).catch(function (error) {
+          console.log(error);
+        });
+        console.log(content);
+      }
+
+    </script>
+    <script type="text/javascript" src="/static/apriltag/main.js"></script>
+    <script type="module" async src="/static/apriltag/video_process.js"></script>
+  </body>
+</html>
