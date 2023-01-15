@@ -138,7 +138,7 @@
 
 
     <template id="template">
-        <div>Day status: {{ dayStatus }}</div>
+        <div>Day status: {{ dayStatus }} <progress min="0" max="100" :value="dayStatusFilled"></progress></div>
         <div>Collected fruits: {{ collectedFruits.length }}</div>
         <div v-if="!currentPos">
           <div>?</div>
@@ -169,7 +169,13 @@
           return {
             msg: 'Hello Vue!',
 
+            dayStatusSeconds: {
+              'day': 60 * 2,
+              'evening': 60 * 10,
+              'night': 30,
+            },
             dayStatus: null,
+            dayStatusFilled: 0,
             dayStatusEndTime: null,
 
             currentPos: null,
@@ -181,8 +187,26 @@
         },
         mounted() {
           window.vueHandleDetected = this.handleDetected
+          this.dayStatusHandler();
+          this.handleDetected(`http://koodi-${5 + 1}`)
         },
         methods: {
+          dayStatusHandler() {
+            // Update day status loading bar
+            if (this.dayStatus && this.dayStatusEndTime) {
+              const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
+              const maxSeconds = this.dayStatusSeconds[this.dayStatus];
+              this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
+              if (this.dayStatusFilled >= 100 && this.dayStatus == 'night') {
+                // Simulate a scan of home
+                this.handleDetected(`http://koodi-${5 + 1}`)
+              }
+            }
+
+            setTimeout(() => {
+              this.dayStatusHandler();
+            }, 1000)
+          },
           handleScanResponse(data) {
             console.log(data);
             this.currentPos = data.currentPos
@@ -196,7 +220,7 @@
 
             if (data.dayStatus) {
               this.dayStatus = data.dayStatus;
-              this.dayStatusEndTime = data.dayStatusEndTime;
+              this.dayStatusEndTime = new Date(data.dayStatusEnding);
             }
 
             if (data.event) {

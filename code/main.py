@@ -174,6 +174,16 @@ def clear_tag(tag_slug):
     logger.debug('Cleared tag %s', tag_slug)
 
 
+def all_food_collected():
+    """
+    Return True if all food has been collected
+    """
+    for tag in tags_table:
+        if tags_table[tag].get('food'):
+            return False
+    return True
+
+
 def check_tag_pairs():
     """
     If two tags are scanned recently and their food is a match, add that food to inventory
@@ -243,6 +253,10 @@ def scan_tag():
     if tags_table[barcode].get('food'):
         current_pos = 'food'
 
+    if all_food_collected():
+        set_day_status('evening')
+        day_status, day_status_ending = get_day_status()
+
     speak = "Tyhjä"
     tag_pair_event = None
     if day_status == 'night':
@@ -253,6 +267,7 @@ def scan_tag():
             speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Alatte nukkumaan."
             main_table['inventory'] = []
             set_day_status('night')
+            day_status, day_status_ending = get_day_status()
     elif day_status == 'day':
         tag_pair_event = check_tag_pairs()
 
