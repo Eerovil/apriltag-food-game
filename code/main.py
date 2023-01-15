@@ -313,10 +313,12 @@ def scan_tag():
             speak = "tässä on koti, etsikää ruokaa!"
         elif tag_pair_event:
             speak = f"Saitte kerättyä ruuan {fruit_name(tag_pair_event['food_slug'])}!"
+            if day_status == 'day' and all_food_collected():
+                set_day_status('evening')
+                day_status, day_status_ending = get_day_status()
         else:
             if current_pos == 'food':
                 speak = f"tässä on ruoka {fruit_name(tag_data.get('food'))}, etsikää toinen!"
-
 
     return {
         'currentPos': current_pos,
