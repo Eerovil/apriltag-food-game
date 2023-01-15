@@ -219,7 +219,7 @@
               const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
               const maxSeconds = this.dayStatusSeconds[this.dayStatus] + 10;
               this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
-              if (this.dayStatusFilled >= 100 && this.dayStatus == 'night') {
+              if (this.dayStatusFilled > 101 && this.dayStatus == 'night') {
                 // Simulate a scan of home
                 this.handleDetected(`http://koodi-${5 + 1}`)
               }
