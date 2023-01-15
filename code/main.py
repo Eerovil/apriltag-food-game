@@ -31,6 +31,43 @@ def fruit_name(fruit_slug):
     }.get(fruit_slug, fruit_slug)
 
 
+def get_size_name():
+    eaten_food = main_table.get('eaten_food', 0)
+    if eaten_food < 1:
+        return 'muurahainen'
+    elif eaten_food < 2:
+        return 'kärpänen'
+    elif eaten_food < 5:
+        return 'hiiri'
+    elif eaten_food < 10:
+        return 'kissa'
+    elif eaten_food < 15:
+        return 'lammas'
+    elif eaten_food < 20:
+        return 'leivinuuni'
+    elif eaten_food < 25:
+        return 'auto'
+    elif eaten_food < 30:
+        return 'talo'
+    elif eaten_food < 35:
+        return 'kirkko'
+    elif eaten_food < 40:
+        return 'kerrostalo'
+    elif eaten_food < 45:
+        return 'kaupunki'
+    elif eaten_food < 50:
+        return 'joki'
+    elif eaten_food < 55:
+        return 'kuu'
+    elif eaten_food < 60:
+        return 'maapallo'
+    elif eaten_food < 65:
+        return 'aurinko'
+    elif eaten_food < 70:
+        return 'galaksi'
+    else:
+        return 'universumi'
+
 main_table['last_tick'] = datetime.datetime.now()
 
 
@@ -253,7 +290,7 @@ def scan_tag():
     if tags_table[barcode].get('food'):
         current_pos = 'food'
 
-    if all_food_collected():
+    if day_status == 'day' and all_food_collected():
         set_day_status('evening')
         day_status, day_status_ending = get_day_status()
 
@@ -264,7 +301,8 @@ def scan_tag():
     elif day_status == 'evening':
         speak = "Nyt on ilta, menkää nukkumaan"
         if current_pos == 'home':
-            speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Alatte nukkumaan."
+            main_table['eaten_food'] += len(main_table['inventory'])
+            speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Teistä kasvaa nyt yhtä isoja kuin {get_size_name()}."
             main_table['inventory'] = []
             set_day_status('night')
             day_status, day_status_ending = get_day_status()
@@ -295,3 +333,4 @@ def scan_tag():
 
 respawn_all_tags()
 main_table['inventory'] = []
+main_table['eaten_food'] = 0
