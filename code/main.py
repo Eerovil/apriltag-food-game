@@ -58,7 +58,7 @@ HOME_CODE = 'http://koodi-6'
 
 
 DAY_LENGTH = datetime.timedelta(seconds=60 * 2)
-NIGHT_LENGTH = datetime.timedelta(seconds=60 * 1)
+NIGHT_LENGTH = datetime.timedelta(seconds=30)
 
 
 point_names = {
@@ -94,6 +94,16 @@ def dict_with_isoformat_dates(d):
     return d
 
 
+def set_day_status(new_status):
+    main_table['day_status'] = new_status
+    if new_status == 'day':
+        main_table['day_status_ending'] = datetime.datetime.now() + DAY_LENGTH
+    elif new_status == 'evening':
+        main_table['day_status_ending'] = datetime.datetime.now() + datetime.timedelta(hours=1)
+    elif new_status == 'night':
+        main_table['day_status_ending'] = datetime.datetime.now() + NIGHT_LENGTH
+
+
 def get_day_status():
     """
     Return day status and ending of the status,
@@ -107,18 +117,15 @@ def get_day_status():
 
     if main_table['day_status_ending'] < datetime.datetime.now():
         if main_table['day_status'] == 'day':
-            main_table['day_status'] = 'evening'
-            # Give time to eat all fruit
-            main_table['day_status_ending'] = datetime.datetime.now() + datetime.timedelta(hours=1)
+            set_day_status('evening')
             logger.debug('day ended, evening starting')
         elif main_table['day_status'] == 'evening':
-            main_table['day_status'] = 'night'
-            main_table['day_status_ending'] = datetime.datetime.now() + NIGHT_LENGTH
+            set_day_status('night')
             logger.debug('evening ended, night starting')
         elif main_table['day_status'] == 'night':
-            main_table['day_status'] = 'day'
-            main_table['day_status_ending'] = datetime.datetime.now() + DAY_LENGTH
+            set_day_status('day')
             logger.debug('night ended, day starting')
+            respawn_all_tags()
 
     return main_table['day_status'], main_table['day_status_ending'].isoformat()
 
@@ -224,11 +231,11 @@ def scan_tag():
     if barcode not in tags_table:
         return Response('Unknown tag', status=404)
 
+    day_status, day_status_ending = get_day_status()
+
     tag_data = tags_table[barcode]
     tag_data['last_seen'] = datetime.datetime.now()
     tags_table[barcode] = tag_data
-
-    tag_pair_event = check_tag_pairs()
 
     current_pos = None
     if barcode == HOME_CODE:
@@ -237,16 +244,26 @@ def scan_tag():
         current_pos = 'food'
 
     speak = "Tyhjä"
+    tag_pair_event = None
+    if day_status == 'night':
+        speak = "Nyt on yö, nukutaan"
+    elif day_status == 'evening':
+        speak = "Nyt on ilta, menkää nukkumaan"
+        if current_pos == 'home':
+            speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Alatte nukkumaan."
+            main_table['inventory'] = []
+            set_day_status('night')
+    elif day_status == 'day':
+        tag_pair_event = check_tag_pairs()
 
-    day_status, day_status_ending = get_day_status()
+        if current_pos == 'home':
+            speak = "tässä on koti, etsikää ruokaa!"
+        elif tag_pair_event:
+            speak = f"Saitte kerättyä ruuan {fruit_name(tag_pair_event['food_slug'])}!"
+        else:
+            if current_pos == 'food':
+                speak = f"tässä on ruoka {fruit_name(tag_data.get('food'))}, etsikää toinen!"
 
-    if current_pos == 'home':
-        speak = "tässä on koti, etsikää ruokaa!"
-    elif tag_pair_event:
-        speak = f"Saitte kerättyä ruuan {fruit_name(tag_pair_event['food_slug'])}!"
-    else:
-        if current_pos == 'food':
-            speak = f"tässä on ruoka {fruit_name(tag_data.get('food'))}, etsikää toinen!"
 
     return {
         'currentPos': current_pos,
