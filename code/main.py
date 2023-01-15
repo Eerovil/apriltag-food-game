@@ -303,6 +303,7 @@ def scan_tag():
         if current_pos == 'home':
             main_table['eaten_food'] += len(main_table['inventory'])
             speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Teistä kasvaa nyt yhtä isoja kuin {get_size_name()}."
+            speak += " Ja nyt nukkumaan!"
             main_table['inventory'] = []
             set_day_status('night')
             day_status, day_status_ending = get_day_status()
