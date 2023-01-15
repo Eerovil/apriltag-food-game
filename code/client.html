@@ -217,7 +217,7 @@
             // Update day status loading bar
             if (this.dayStatus && this.dayStatusEndTime) {
               const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
-              const maxSeconds = this.dayStatusSeconds[this.dayStatus] - 10;
+              const maxSeconds = this.dayStatusSeconds[this.dayStatus] + 10;
               this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
               if (this.dayStatusFilled >= 100 && this.dayStatus == 'night') {
                 // Simulate a scan of home
