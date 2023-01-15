@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/shake-detector"></script>
 
     <meta name="mobile-web-app-capable" content="yes">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
     <style>
@@ -35,6 +36,7 @@
   </head>
   <body>
     <div id="wrapper">
+      <div id="vue-app"></div>
       <video id="webcam_canvas" playsinline autoplay style="display:none"></video>
       <div class="video">
         <canvas id="out_canvas"></canvas>
@@ -137,5 +139,22 @@
     </script>
     <script type="text/javascript" src="/static/apriltag/main.js"></script>
     <script type="module" async src="/static/apriltag/video_process.js"></script>
+
+
+    <template id="template">{{ msg }}</template>
+    <script>
+      const { createApp } = Vue;
+    
+      createApp({
+        template: "#template",
+
+        data() {
+          return {
+            msg: 'Hello Vue!'
+          }
+        }
+      }).mount('#vue-app')
+
+    </script>
   </body>
 </html>
