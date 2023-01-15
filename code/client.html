@@ -1,3 +1,4 @@
+{% raw %}
 <!DOCTYPE html>
 <html>
   <head>
@@ -30,6 +31,9 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        height: 100%;
+      }
+      #vue-app {
         height: 100%;
       }
     </style>
@@ -124,16 +128,8 @@
         setTimeout(() => {
           lastDetId = null
         }, 3000)
-        playMusic();
         melody([[440, 100], [554.37, 100], [659.25, 100]])
-        axios.post('/api/mark', {barcode: content}).then(function (response) {
-          if (window.speechSynthesis) {
-            speak(response.data);
-          }
-        }).catch(function (error) {
-          console.log(error);
-        });
-        console.log(content);
+        window.vueHandleDetected(content)
       }
 
     </script>
@@ -141,7 +137,28 @@
     <script type="module" async src="/static/apriltag/video_process.js"></script>
 
 
-    <template id="template">{{ msg }}</template>
+    <template id="template">
+        <div>Day status: {{ dayStatus }}</div>
+        <div>Collected fruits: {{ collectedFruits.length }}</div>
+        <div v-if="!currentPos">
+          <div>?</div>
+        </div>
+        <div v-else-if="currentPos == 'home'">
+          <div>Kotona</div>
+          <div v-if="dayStatus == 'evening'">Syöntinäkymä</div>
+          <div v-else-if="dayStatus == 'night'">Nukkumaan</div>
+          <div v-else>Mene keräämään ruokaa</div>
+        </div>
+        <div v-else-if="currentPos == 'food'">
+          <div>Ruoka {{ posContent.food }}</div>
+        </div>
+        <div v-else-if="currentPos == 'lock'">
+          <div>Lukko</div>
+        </div>
+        <div v-else-if="currentPos == 'password'">
+          <div>Salasana</div>
+        </div>
+    </template>
     <script>
       const { createApp } = Vue;
     
@@ -150,11 +167,64 @@
 
         data() {
           return {
-            msg: 'Hello Vue!'
+            msg: 'Hello Vue!',
+
+            dayStatus: null,
+            dayStatusEndTime: null,
+
+            currentPos: null,
+            posContent: null,
+            collectedFruits: [],
+
+            event: null,
           }
-        }
+        },
+        mounted() {
+          window.vueHandleDetected = this.handleDetected
+        },
+        methods: {
+          handleScanResponse(data) {
+            console.log(data);
+            this.currentPos = data.currentPos
+            this.posContent = data.posContent
+            this.collectedFruits = data.collectedFruits
+
+            if (data.speak) {
+              const event = new CustomEvent('speak', { detail: data.speak });
+              window.document.dispatchEvent(event);
+            }
+
+            if (data.dayStatus) {
+              this.dayStatus = data.dayStatus;
+              this.dayStatusEndTime = data.dayStatusEndTime;
+            }
+
+            if (data.event) {
+              this.event = data.event;
+              setTimeout(() => {
+                this.event = null;
+              }, 5000)
+            }
+            if (this.currentPos != 'home') {
+              setTimeout(() => {
+                this.currentPos = null;
+              }, 5000)
+            }
+          },
+          handleDetected(content) {
+            console.log("Detected", content)
+            axios.post('/api/scan', {content})
+              .then((response) => {
+                this.handleScanResponse(response.data)
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          }
+        },
       }).mount('#vue-app')
 
     </script>
   </body>
 </html>
+{% endraw %}
