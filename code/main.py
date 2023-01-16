@@ -91,7 +91,6 @@ INITIAL_CODES = [
     'http://koodi-11',
     'http://koodi-12',
 ]
-HOME_CODE = 'http://koodi-6'
 
 
 DAY_LENGTH = datetime.timedelta(seconds=60 * 2)
@@ -139,6 +138,7 @@ def set_day_status(new_status):
         main_table['day_status_ending'] = datetime.datetime.now() + datetime.timedelta(hours=1)
     elif new_status == 'night':
         main_table['day_status_ending'] = datetime.datetime.now() + NIGHT_LENGTH
+    logger.debug('set day status to %s, ending at %s', new_status, main_table['day_status_ending'].isoformat())
 
 
 def get_day_status():
@@ -176,8 +176,7 @@ def respawn_all_tags():
     for tag in point_names:
         tag_data = {}
         tag_data['last_seen'] = datetime.datetime.now() - datetime.timedelta(days=1)
-        if tag != HOME_CODE:
-            fruit_tags.append(tag)
+        fruit_tags.append(tag)
         tags_table[tag] = tag_data
 
     # Randomize fruit tags
@@ -275,9 +274,7 @@ def scan_tag():
     day_status, day_status_ending = get_day_status()
 
     current_pos = None
-    if barcode == HOME_CODE:
-        current_pos = 'home'
-    elif barcode == 'dummy':
+    if barcode == 'dummy':
         current_pos = 'dummy'
     elif tags_table[barcode].get('food'):
         current_pos = 'food'
@@ -312,9 +309,7 @@ def scan_tag():
         if tag_data:
             tag_pair_event = check_tag_pair(barcode)
 
-        if current_pos == 'home':
-            speak = "tässä on koti, etsikää ruokapareja!"
-        elif tag_pair_event:
+        if tag_pair_event:
             speak = f"Löytyi pari! {fruit_name(tag_pair_event['food_slug'])}!"
             if day_status == 'day' and all_food_collected():
                 set_day_status('evening')
