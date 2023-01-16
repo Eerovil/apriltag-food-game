@@ -358,9 +358,9 @@ def eat_food():
 ### Initialize
 
 respawn_all_tags()
-main_table['inventory'] = [{"slug": 'apple'}, {"slug": 'carrot'}]
+main_table['inventory'] = []
 main_table['eaten_food'] = 0
 main_table['eaten_food_today'] = 0
 main_table['last_tag'] = None
 
-set_day_status('evening')
+set_day_status('day')
