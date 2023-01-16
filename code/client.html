@@ -115,8 +115,6 @@
         const utter = new SpeechSynthesisUtterance();
         utter.lang = 'fi-FI';
         utter.text = text;
-        utter.rate = 1.2;
-        utter.pitch = 0.8;
         speechSynthesis.cancel();
         speechSynthesis.speak(utter);
       }
@@ -193,6 +191,8 @@
 
             event: null,
             speakText: null,
+
+            lastHandle: null,
           }
         },
         computed: {
@@ -219,11 +219,13 @@
               const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
               const maxSeconds = this.dayStatusSeconds[this.dayStatus] + 10;
               this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
-              if (this.dayStatusFilled >= 100 && this.dayStatus == 'night') {
+              if (this.dayStatusFilled >= 100) {
                 // Simulate a scan of home
                 setTimeout(() => {
-                  this.handleDetected(`dummy`)
-                }, 2000)
+                  if (this.dayStatusFilled >= 100) {
+                    this.handleDetected(`dummy`)
+                  }
+                }, 2000 + (2000 * (this.dayStatusFilled - 100)))
               }
             }
 
@@ -236,16 +238,26 @@
             this.currentPos = data.currentPos
             this.posContent = data.posContent
             this.collectedFruits = data.collectedFruits
-
-            if (data.speak) {
-              const event = new CustomEvent('speak', { detail: data.speak });
-              window.document.dispatchEvent(event);
-              this.speakText = data.speak
-            }
+            let extraSpeak = '';
 
             if (data.dayStatus) {
+              if (data.dayStatus != this.dayStatus) {
+                if (data.dayStatus == 'day') {
+                  extraSpeak += 'On aamu. ';
+                } else if (data.dayStatus == 'evening') {
+                  extraSpeak += 'On ilta. ';
+                } else if (data.dayStatus == 'night') {
+                  extraSpeak += 'On yö. ';
+                }
+              }
               this.dayStatus = data.dayStatus;
               this.dayStatusEndTime = new Date(data.dayStatusEnding);
+            }
+
+            if (data.speak) {
+              const event = new CustomEvent('speak', { detail: extraSpeak + data.speak });
+              window.document.dispatchEvent(event);
+              this.speakText = extraSpeak + data.speak
             }
 
             if (data.event) {
