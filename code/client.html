@@ -44,6 +44,16 @@
       #vue-app > div {
         margin: 1rem;
       }
+      #collected-fruits {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #collected-fruits img {
+        width: 15vw;
+      }
     </style>
   </head>
   <body>
@@ -145,7 +155,12 @@
 
     <template id="template">
         <div>{{ dayStatusText }} <progress min="0" max="100" :value="dayStatusFilled"></progress></div>
-        <div>Ruokaa: {{ collectedFruits.length }}</div>
+        <img style="width: 30vw;" v-if="dayStatusImgSlug" :src="`/static/${dayStatusImgSlug}.png`"></img>
+        <div id="collected-fruits">
+          <div v-for="fruit in collectedFruits">
+            <img :src="`/static/${fruit.slug}.png`"></img>
+          </div>
+        </div>
         <div v-if="!currentPos">
           <!-- <div>?</div> -->
         </div>
@@ -196,6 +211,11 @@
           }
         },
         computed: {
+          dayStatusImgSlug() {
+            if (this.dayStatus == 'evening' || this.dayStatus == 'night') {
+              return 'night';
+            }
+          },
           dayStatusText() {
             if (this.dayStatus == 'day') {
               return 'Päivä';
