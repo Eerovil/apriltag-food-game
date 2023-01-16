@@ -316,7 +316,7 @@ def scan_tag():
                 day_status, day_status_ending = get_day_status()
         else:
             if current_pos == 'food':
-                speak = f"tässä on {fruit_name(tag_data.get('food'))}, etsikää toinen!"
+                speak = f"tässä on {fruit_name(tag_data.get('food'))}, Missä on sen pari?"
             elif not current_pos:
                 speak = "Tyhjä"
 
