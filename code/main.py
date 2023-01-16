@@ -342,6 +342,7 @@ def eat_food():
                 inventory.pop(index)
                 main_table['inventory'] = inventory
                 main_table['eaten_food_today'] += 1
+                main_table['eaten_food'] += 1
                 break
             index += 1
 
