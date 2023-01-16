@@ -196,6 +196,7 @@ def respawn_all_tags():
         counter += 1
 
     logger.debug('Respawned all tags')
+    main_table['last_tag'] = None
 
 
 def add_food_to_inventory(food_slug):
