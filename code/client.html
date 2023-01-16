@@ -210,7 +210,7 @@
         mounted() {
           window.vueHandleDetected = this.handleDetected
           this.dayStatusHandler();
-          this.handleDetected(`http://koodi-${5 + 1}`)
+          this.handleDetected(`dummy`)
         },
         methods: {
           dayStatusHandler() {
@@ -222,7 +222,7 @@
               if (this.dayStatusFilled == 100 && this.dayStatus == 'night') {
                 // Simulate a scan of home
                 setTimeout(() => {
-                  this.handleDetected(`http://koodi-${5 + 1}`)
+                  this.handleDetected(`dummy`)
                 }, 2000)
               }
             }

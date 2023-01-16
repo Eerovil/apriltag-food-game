@@ -187,10 +187,12 @@ def respawn_all_tags():
         fruit_tags.pop()
 
     # Spawn pairs of fruits
+    counter = 0
     for i in range(0, len(fruit_tags), 2):
-        fruit_slug = random.choice(['watermelon', 'carrot', 'apple', 'sandvich'])
+        fruit_slug = FRUIT_SLUGS[counter % len(FRUIT_SLUGS)]
         table_setter(tags_table, fruit_tags[i], 'food', fruit_slug)
         table_setter(tags_table, fruit_tags[i + 1], 'food', fruit_slug)
+        counter += 1
 
     logger.debug('Respawned all tags')
 
@@ -255,29 +257,34 @@ def scan_tag():
     if not barcode:
         return 'No barcode provided'
 
-    if 'koodi' not in barcode:
-        return 'No koodi provided'
+    if barcode != 'dummy':
+        if 'koodi' not in barcode:
+            return 'No koodi provided'
 
-    if barcode not in tags_table:
-        return Response('Unknown tag', status=404)
+        if barcode not in tags_table:
+            return Response('Unknown tag', status=404)
+
+        tag_data = tags_table[barcode]
+        tag_data['last_seen'] = datetime.datetime.now()
+        tags_table[barcode] = tag_data
+    else:
+        tag_data = None
 
     day_status, day_status_ending = get_day_status()
-
-    tag_data = tags_table[barcode]
-    tag_data['last_seen'] = datetime.datetime.now()
-    tags_table[barcode] = tag_data
 
     current_pos = None
     if barcode == HOME_CODE:
         current_pos = 'home'
-    if tags_table[barcode].get('food'):
+    elif barcode == 'dummy':
+        current_pos = 'dummy'
+    elif tags_table[barcode].get('food'):
         current_pos = 'food'
 
     if day_status == 'day' and all_food_collected():
         set_day_status('evening')
         day_status, day_status_ending = get_day_status()
 
-    speak = "Tyhjä"
+    speak = "etsikää ruokapareja!"
     tag_pair_event = None
     if day_status == 'night':
         speak = "Nyt on yö, nukutaan"
@@ -291,10 +298,11 @@ def scan_tag():
             set_day_status('night')
             day_status, day_status_ending = get_day_status()
     elif day_status == 'day':
-        tag_pair_event = check_tag_pair(barcode)
+        if tag_data:
+            tag_pair_event = check_tag_pair(barcode)
 
         if current_pos == 'home':
-            speak = "tässä on koti, etsikää ruoka pareja!"
+            speak = "tässä on koti, etsikää ruokapareja!"
         elif tag_pair_event:
             speak = f"Löytyi pari! {fruit_name(tag_pair_event['food_slug'])}!"
             if day_status == 'day' and all_food_collected():
@@ -303,10 +311,12 @@ def scan_tag():
         else:
             if current_pos == 'food':
                 speak = f"tässä on {fruit_name(tag_data.get('food'))}, etsikää toinen!"
+            elif not current_pos:
+                speak = "Tyhjä"
 
     return {
         'currentPos': current_pos,
-        'posContent': dict_with_isoformat_dates(tags_table[barcode]),
+        'posContent': dict_with_isoformat_dates(tags_table[barcode]) if tag_data else None,
         'collectedFruits': main_table['inventory'],
         'speak': speak,
         'dayStatus': day_status,
