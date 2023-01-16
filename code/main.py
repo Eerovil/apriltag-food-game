@@ -221,47 +221,30 @@ def all_food_collected():
     return True
 
 
-def check_tag_pairs():
+def check_tag_pair(new_tag):
     """
-    If two tags are scanned recently and their food is a match, add that food to inventory
+    If prev tag food is a match, add that food to inventory
     """
-    recent_tags = []
-    recent_food_slugs = defaultdict(int)
-
-    for tag in tags_table:
-        if not tags_table[tag].get('food'):
-            continue
-        is_recent = datetime.datetime.now() - tags_table[tag]['last_seen'] < datetime.timedelta(seconds=10)
-        if is_recent:
-            food_slug = tags_table[tag]['food']
-            recent_food_slugs[food_slug] += 1
-            recent_tags.append(tag)
-
     event = None
+    if main_table['last_tag'] and main_table['last_tag'] != new_tag:
+        prev_tag_data = tags_table[main_table['last_tag']]
+        new_tag_data = tags_table[new_tag]
+        prev_food = prev_tag_data.get('food')
+        new_food = new_tag_data.get('food')
 
-    for tag in recent_tags:
-        food_slug = tags_table[tag]['food']
-        if recent_food_slugs[food_slug] < 2:
-            continue
+        if prev_food and new_food and prev_food == new_food:
+            add_food_to_inventory(prev_food)
+            add_food_to_inventory(prev_food)
+            clear_tag(main_table['last_tag'])
+            clear_tag(new_tag)
 
-        # Add food to inventory
-        add_food_to_inventory(food_slug)
-        add_food_to_inventory(food_slug)
-        logger.debug("Found food %s", food_slug)
+            event = {
+                'type': 'food_found',
+                'food_slug': prev_food,
+                'point_name': point_names[new_tag],
+            }
 
-        # Remove food from tag
-        clear_tag(tag)
-
-        # Remove other tag
-        other_tag = [t for t in recent_tags if t != tag and tags_table[t]['food'] == food_slug][0]
-        clear_tag(other_tag)
-
-        event = {
-            'type': 'food_found',
-            'food_slug': food_slug,
-            'point_name': point_names[tag],
-        }
-        break
+    main_table['last_tag'] = new_tag
 
     return event
 
@@ -308,18 +291,18 @@ def scan_tag():
             set_day_status('night')
             day_status, day_status_ending = get_day_status()
     elif day_status == 'day':
-        tag_pair_event = check_tag_pairs()
+        tag_pair_event = check_tag_pair(barcode)
 
         if current_pos == 'home':
-            speak = "tässä on koti, etsikää ruokaa!"
+            speak = "tässä on koti, etsikää ruoka pareja!"
         elif tag_pair_event:
-            speak = f"Saitte kerättyä ruuan {fruit_name(tag_pair_event['food_slug'])}!"
+            speak = f"Löytyi pari! {fruit_name(tag_pair_event['food_slug'])}!"
             if day_status == 'day' and all_food_collected():
                 set_day_status('evening')
                 day_status, day_status_ending = get_day_status()
         else:
             if current_pos == 'food':
-                speak = f"tässä on ruoka {fruit_name(tag_data.get('food'))}, etsikää toinen!"
+                speak = f"tässä on {fruit_name(tag_data.get('food'))}, etsikää toinen!"
 
     return {
         'currentPos': current_pos,
@@ -337,3 +320,4 @@ def scan_tag():
 respawn_all_tags()
 main_table['inventory'] = []
 main_table['eaten_food'] = 0
+main_table['last_tag'] = None
