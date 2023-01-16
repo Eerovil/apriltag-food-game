@@ -54,6 +54,12 @@
       #collected-fruits img {
         width: 15vw;
       }
+      #day-status {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+      }
     </style>
   </head>
   <body>
@@ -154,10 +160,13 @@
 
 
     <template id="template">
-        <div>{{ dayStatusText }} <progress min="0" max="100" :value="dayStatusFilled"></progress></div>
-        <img style="width: 30vw;" v-if="dayStatusImgSlug" :src="`/static/${dayStatusImgSlug}.png`"></img>
+        <div id="day-status">
+          <img style="width: 10vw;" v-if="dayStatusImgSlug" :src="`/static/${dayStatusImgSlug}.png`"></img>
+          <progress min="0" max="100" :value="dayStatusFilled"></progress>
+        </div>
+        
         <div id="collected-fruits">
-          <div v-for="fruit in collectedFruits">
+          <div v-for="fruit in collectedFruits" @click="eatFruit(fruit)">
             <img :src="`/static/${fruit.slug}.png`"></img>
           </div>
         </div>
@@ -208,12 +217,18 @@
             speakText: null,
 
             lastHandle: null,
+
+            eatingLoop: null,
+            eatingCurrently: false,
           }
         },
         computed: {
           dayStatusImgSlug() {
             if (this.dayStatus == 'evening' || this.dayStatus == 'night') {
               return 'night';
+            }
+            if (this.dayStatus == 'day') {
+              return 'sun';
             }
           },
           dayStatusText() {
@@ -233,11 +248,25 @@
           this.handleDetected(`dummy`)
         },
         methods: {
+          startEatingLoop() {
+            if (this.eatingLoop) {
+              return;
+            }
+            this.eatingLoop = setInterval(() => {
+              this.handleEatFoodApi();
+            }, 1000);
+          },
+          stopEatingLoop() {
+            if (this.eatingLoop) {
+              clearInterval(this.eatingLoop);
+              this.eatingLoop = null;
+            }
+          },
           dayStatusHandler() {
             // Update day status loading bar
             if (this.dayStatus && this.dayStatusEndTime) {
               const secondsLeft = (this.dayStatusEndTime.getTime() - new Date().getTime()) / 1000;
-              const maxSeconds = this.dayStatusSeconds[this.dayStatus] + 10;
+              const maxSeconds = this.dayStatusSeconds[this.dayStatus] + 1;
               this.dayStatusFilled = Math.round(100 * (1 - secondsLeft / maxSeconds));
               if (this.dayStatusFilled >= 100) {
                 // Simulate a scan of home
@@ -274,6 +303,16 @@
               this.dayStatusEndTime = new Date(data.dayStatusEnding);
             }
 
+            if (this.dayStatus == 'evening') {
+              this.startEatingLoop();
+            } else {
+              this.stopEatingLoop();
+            }
+
+            if (data.event && data.event.speak) {
+              data.speak = data.event.speak;
+            }
+
             if (data.speak) {
               const event = new CustomEvent('speak', { detail: extraSpeak + data.speak });
               window.document.dispatchEvent(event);
@@ -297,6 +336,52 @@
             axios.post('/api/scan', {content})
               .then((response) => {
                 this.handleScanResponse(response.data)
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          },
+          eatFruit(fruit) {
+            if (this.dayStatus != 'evening') {
+              return;
+            }
+            if (this.eatingCurrently) {
+              return;
+            }
+            this.eatingCurrently = true;
+            let fruitName = ''
+            if (fruit.slug == 'apple') {
+              fruitName = 'omenan';
+            }
+            if (fruit.slug == 'watermelon') {
+              fruitName = 'vesimelonin';
+            }
+            if (fruit.slug == 'carrot') {
+              fruitName = 'porkkanan';
+            }
+            if (fruit.slug == 'sandvich') {
+              fruitName = 'leivän';
+            }
+
+            const event = new CustomEvent('speak', { detail: "Syöt " + fruitName });
+            window.document.dispatchEvent(event);
+            this.speakText = "Syöt " + fruitName
+
+            setTimeout(() => {
+              this.handleEatFoodApi(fruit.slug)
+            }, 2000)
+          },
+          handleEatFoodApi(eatSlug) {
+            // Call the eat food api, either to eat or just to check what is available
+            axios.post('/api/eat_food', {eatSlug})
+              .then((response) => {
+                this.collectedFruits = response.data.collectedFruits
+                if (this.collectedFruits.length == 0) {
+                  this.handleDetected('dummy');
+                }
+                if (eatSlug) {
+                  this.eatingCurrently = false;
+                }
               })
               .catch((error) => {
                 console.log(error);

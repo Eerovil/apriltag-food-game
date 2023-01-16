@@ -156,6 +156,7 @@ def get_day_status():
         if main_table['day_status'] == 'day':
             set_day_status('evening')
             logger.debug('day ended, evening starting')
+            main_table['eaten_food_today'] = 0
         elif main_table['day_status'] == 'evening':
             set_day_status('night')
             logger.debug('evening ended, night starting')
@@ -282,24 +283,30 @@ def scan_tag():
 
     if day_status == 'day' and all_food_collected():
         set_day_status('evening')
+        main_table['eaten_food_today'] = 0
         day_status, day_status_ending = get_day_status()
+
+    eat_all_food_event = None
+    if not main_table['inventory'] and main_table['day_status'] == 'evening':
+        set_day_status('night')
+        day_status, day_status_ending = get_day_status()
+        eat_all_food_event = {
+            'type': 'eat_all_food',
+            'speak': ''
+        }
+        if main_table['eaten_food_today'] == 0:
+            eat_all_food_event['speak'] = f"Ette saaneet kerättyä yhtään ruokaa. Olette yhtä isoja kuin {get_size_name()}."
+        else:
+            eat_all_food_event['speak'] = f"Söitte keräämänne ruoat, {main_table['eaten_food_today']} kappaletta! Teistä kasvaa nyt yhtä isoja kuin {get_size_name()}."
+
+        eat_all_food_event['speak'] += " Nyt nukkumaan!"
 
     speak = "etsikää ruokapareja!"
     tag_pair_event = None
     if day_status == 'night':
         speak = "Nyt on yö, nukutaan"
     elif day_status == 'evening':
-        speak = "Nyt on ilta, menkää nukkumaan"
-        if current_pos == 'home':
-            main_table['eaten_food'] += len(main_table['inventory'])
-            if len(main_table['inventory']) == 0:
-                speak = f"Ette saaneet kerättyä yhtään ruokaa. Olette yhtä isoja kuin {get_size_name()}."
-            else:
-                speak = f"Syötte keräämänne ruoat, {len(main_table['inventory'])} kappaletta! Teistä kasvaa nyt yhtä isoja kuin {get_size_name()}."
-            speak += " Ja nyt nukkumaan!"
-            main_table['inventory'] = []
-            set_day_status('night')
-            day_status, day_status_ending = get_day_status()
+        speak = "Nyt on ilta, on aika syödä iltapala"
     elif day_status == 'day':
         if tag_data:
             tag_pair_event = check_tag_pair(barcode)
@@ -324,13 +331,36 @@ def scan_tag():
         'speak': speak,
         'dayStatus': day_status,
         'dayStatusEnding': day_status_ending,
-        'event': tag_pair_event,
+        'event': tag_pair_event or eat_all_food_event,
     }
+
+
+@app.route("/api/eat_food", methods=['POST'])
+def eat_food():
+    eat_slug = request.json.get('eatSlug')
+    if eat_slug:
+        inventory = main_table['inventory']
+        index = 0
+        for food in inventory:
+            if food['slug'] == eat_slug:
+                inventory.pop(index)
+                main_table['inventory'] = inventory
+                main_table['eaten_food_today'] += 1
+                break
+            index += 1
+
+    return {
+        'collectedFruits': main_table['inventory'],
+    }
+
 
 
 ### Initialize
 
 respawn_all_tags()
-main_table['inventory'] = []
+main_table['inventory'] = [{"slug": 'apple'}, {"slug": 'carrot'}]
 main_table['eaten_food'] = 0
+main_table['eaten_food_today'] = 0
 main_table['last_tag'] = None
+
+set_day_status('evening')
