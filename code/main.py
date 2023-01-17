@@ -116,6 +116,8 @@ point_names = {
 }
 
 
+SAUNA_ELF = 'http://koodi-9'
+
 
 @app.route("/")
 def hello_world():
@@ -176,6 +178,9 @@ def respawn_all_tags():
     E.g. when day starts. respawn all foods or other items.
     Don't respawn tags that have food on them.
     """
+    main_table['sauna_elf_used'] = False
+    main_table['sauna_elf_counter'] = 0
+
     fruit_tags = []
     for tag in point_names:
         if tags_table.get(tag) and tags_table[tag].get('food'):
@@ -290,6 +295,24 @@ def get_hint_text():
     return 'Tyhjä'
 
 
+def get_sauna_elf_speak():
+    rand = random.randint(1, 5)
+    if main_table['sauna_elf_used']:
+        return 'Saunatonttu on lähtenyt. Yritä huomenna uudelleen.'
+    main_table['sauna_elf_used'] = True
+
+    ret = 'Herätit saunatontun. '
+    if rand == 1:
+        # 20% change to lose food
+        main_table['inventory'] = []
+        return ret + 'Saunatonttu on vihainen ja syö kaiken ruuan. Yritä huomenna uudelleen.'
+    if rand == 2:
+        # 20% change to nothing happen
+        return ret + 'Saunatonttu on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
+    
+    return ret + 'Saunatonttu antaa sinulle vihjeen. ' + get_hint_text()
+
+
 @app.route("/api/scan", methods=['POST'])
 def scan_tag():
     barcode = request.json.get('content')
@@ -306,6 +329,7 @@ def scan_tag():
         tag_data = tags_table[barcode]
         tag_data['last_seen'] = datetime.datetime.now()
         tags_table[barcode] = tag_data
+
     else:
         tag_data = None
 
@@ -363,6 +387,13 @@ def scan_tag():
             elif not current_pos:
                 speak = "Tyhjä"
 
+    if barcode == SAUNA_ELF:
+        main_table['sauna_elf_counter'] += 1
+        if main_table['sauna_elf_counter'] == 3:
+            speak = get_sauna_elf_speak()
+    else:
+        main_table['sauna_elf_counter'] = 0
+
     return {
         'currentPos': current_pos,
         'posContent': dict_with_isoformat_dates(tags_table[barcode]) if tag_data else None,
@@ -402,5 +433,7 @@ main_table['inventory'] = []
 main_table['eaten_food'] = 0
 main_table['eaten_food_today'] = 0
 main_table['last_tag'] = None
+main_table['sauna_elf_counter'] = 0
+main_table['sauna_elf_used'] = False
 
 set_day_status('day')
