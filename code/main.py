@@ -189,6 +189,12 @@ def respawn_all_tags():
     # Randomize fruit tags
     random.shuffle(fruit_tags)
 
+    # Respawn hint
+    if len(fruit_tags) > 0:
+        table_setter(tags_table, fruit_tags[0], 'hint', True)
+        fruit_tags.pop(0)
+        logger.debug("Hint respawned in tag %s", fruit_tags[0])
+
     # Make sure fruit_tags list is even
     if len(fruit_tags) % 2 == 1:
         fruit_tags.pop()
@@ -265,6 +271,25 @@ def check_tag_pair(new_tag):
     return event
 
 
+def get_hint_text():
+    """
+    Return a hint that contains a pair as text
+    """
+    tags = []
+    for tag in tags_table:
+        if tags_table[tag].get('food'):
+            tags.append(tag)
+
+    random_tag = random.choice(tags)
+    random_food = tags_table[random_tag]['food']
+
+    for tag in tags_table:
+        if tags_table[tag].get('food') == random_food and tag != random_tag:
+            return 'Vihje: %s ja %s' % (point_names[random_tag], point_names[tag])
+
+    return 'Tyhjä'
+
+
 @app.route("/api/scan", methods=['POST'])
 def scan_tag():
     barcode = request.json.get('content')
@@ -291,6 +316,9 @@ def scan_tag():
         current_pos = 'dummy'
     elif tags_table[barcode].get('food'):
         current_pos = 'food'
+    elif tags_table[barcode].get('hint'):
+        current_pos = 'hint'
+        table_setter(tags_table, barcode, 'hint', False)
 
     if day_status == 'day' and all_food_collected():
         set_day_status('evening')
@@ -330,6 +358,8 @@ def scan_tag():
         else:
             if current_pos == 'food':
                 speak = f"tässä on {fruit_name(tag_data.get('food'))}, Missä on sen pari?"
+            elif current_pos == 'hint':
+                speak = get_hint_text()
             elif not current_pos:
                 speak = "Tyhjä"
 
