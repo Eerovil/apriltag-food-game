@@ -20,7 +20,7 @@ logger.setLevel(logging.DEBUG)
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 tags_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="tags", autocommit=True)
 
-FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich']
+FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich', 'ananas', 'banana', 'strawberry']
 
 def fruit_name(fruit_slug):
     return {
@@ -28,6 +28,9 @@ def fruit_name(fruit_slug):
         'carrot': 'Porkkana',
         'apple': 'Omena',
         'sandvich': 'Leipä',
+        'ananas': 'Ananas',
+        'banana': 'Banaani',
+        'strawberry': 'Mansikka',
     }.get(fruit_slug, fruit_slug)
 
 
@@ -171,9 +174,13 @@ def get_day_status():
 def respawn_all_tags():
     """
     E.g. when day starts. respawn all foods or other items.
+    Don't respawn tags that have food on them.
     """
     fruit_tags = []
     for tag in point_names:
+        if tags_table.get(tag) and tags_table[tag].get('food'):
+            # Already has food, don't respawn
+            continue
         tag_data = {}
         tag_data['last_seen'] = datetime.datetime.now() - datetime.timedelta(days=1)
         fruit_tags.append(tag)
@@ -186,10 +193,16 @@ def respawn_all_tags():
     if len(fruit_tags) % 2 == 1:
         fruit_tags.pop()
 
+    available_fruits = FRUIT_SLUGS
+    # Remove fruits that are already spawned
+    for tag in tags_table:
+        if tags_table[tag].get('food') in available_fruits:
+            available_fruits.remove(tags_table[tag].get('food'))
+
     # Spawn pairs of fruits
     counter = 0
     for i in range(0, len(fruit_tags), 2):
-        fruit_slug = FRUIT_SLUGS[counter % len(FRUIT_SLUGS)]
+        fruit_slug = available_fruits[counter % len(available_fruits)]
         table_setter(tags_table, fruit_tags[i], 'food', fruit_slug)
         table_setter(tags_table, fruit_tags[i + 1], 'food', fruit_slug)
         counter += 1

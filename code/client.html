@@ -362,6 +362,15 @@
             if (fruit.slug == 'sandvich') {
               fruitName = 'leivän';
             }
+            if (fruit.slug == 'banana') {
+              fruitName = 'banaanin';
+            }
+            if (fruit.slug == 'ananas') {
+              fruitName = 'ananaksen';
+            }
+            if (fruit.slug == 'strawberry') {
+              fruitName = 'mansikan';
+            }
 
             const event = new CustomEvent('speak', { detail: "Syöt " + fruitName });
             window.document.dispatchEvent(event);
