@@ -170,23 +170,10 @@
             <img :src="`/static/${fruit.slug}.png`"></img>
           </div>
         </div>
-        <div v-if="!currentPos">
-          <!-- <div>?</div> -->
-        </div>
-        <div v-else-if="currentPos == 'home'">
-          <!-- <div>Kotona</div>
-          <div v-if="dayStatus == 'evening'">Syöntinäkymä</div>
-          <div v-else-if="dayStatus == 'night'">Nukkumaan</div>
-          <div v-else>Mene keräämään ruokaa</div> -->
-        </div>
-        <div v-else-if="currentPos == 'food'">
-          <!-- <div>Ruoka {{ posContent.food }}</div> -->
-        </div>
-        <div v-else-if="currentPos == 'lock'">
-          <div>Lukko</div>
-        </div>
-        <div v-else-if="currentPos == 'password'">
-          <div>Salasana</div>
+        <div v-if="dayStatus == 'day'">
+          <div v-if="currentPos == 'food'">
+            <img style="width: 30vw;" :src="`/static/${posContent.food}.png`"></img>
+          </div>
         </div>
         <div v-if="speakText">{{ speakText }}</div>
     </template>
@@ -323,11 +310,6 @@
               this.event = data.event;
               setTimeout(() => {
                 this.event = null;
-              }, 5000)
-            }
-            if (this.currentPos != 'home') {
-              setTimeout(() => {
-                this.currentPos = null;
               }, 5000)
             }
           },
