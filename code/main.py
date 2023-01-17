@@ -180,6 +180,15 @@ def respawn_all_tags():
     """
     main_table['sauna_elf_used'] = False
     main_table['sauna_elf_counter'] = 0
+    main_table['sun_dance_steps'] = []
+    main_table['sun_dance_progress'] = 0
+
+    # Add 3 random points as sun dance steps
+    sun_dance_steps = []
+    for i in range(3):
+        sun_dance_steps.append(random.choice(list(point_names.keys())))
+    main_table['sun_dance_steps'] = sun_dance_steps
+    logger.debug("Sun dance steps: %s", main_table['sun_dance_steps'])
 
     fruit_tags = []
     for tag in point_names:
@@ -197,8 +206,15 @@ def respawn_all_tags():
     # Respawn hint
     if len(fruit_tags) > 0:
         table_setter(tags_table, fruit_tags[0], 'hint', True)
-        fruit_tags.pop(0)
         logger.debug("Hint respawned in tag %s", fruit_tags[0])
+        fruit_tags.pop(0)
+
+    if random.randint(0, 1) == 0:
+        # 50% chance to respawn sun dance hint
+        if len(fruit_tags) > 0:
+            table_setter(tags_table, fruit_tags[0], 'sun_dance_hint', True)
+            logger.debug("Sun dance hint respawned in tag %s", fruit_tags[0])
+            fruit_tags.pop(0)
 
     # Make sure fruit_tags list is even
     if len(fruit_tags) % 2 == 1:
@@ -295,6 +311,17 @@ def get_hint_text():
     return 'Tyhjä'
 
 
+def get_sun_dance_hint_text():
+    """
+    Return a hint that contains the dance steps as text
+    """
+    return (
+        "Avaat vanhan näköisen pergamentin. Paperi on kellastunut ja kirjoitus on hauras. " +
+        "Olet löytänyt vanhan auringonpäivän tanssin ohjeen. Käy järjestyksessä: " +
+        (", ".join([point_names[_tag] for _tag in main_table['sun_dance_steps']]))
+    )
+
+
 def get_sauna_elf_speak():
     rand = random.randint(1, 5)
     if main_table['sauna_elf_used']:
@@ -311,6 +338,16 @@ def get_sauna_elf_speak():
         return ret + 'Saunatonttu on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
     
     return ret + 'Saunatonttu antaa sinulle vihjeen. ' + get_hint_text()
+
+
+def get_success_sun_dance_speak():
+    """
+    Apply sun dance success and speak
+    """
+    main_table['sun_dance_steps'] = []
+    main_table['sun_dance_progress'] = 0
+    main_table['day_status_ending'] += datetime.timedelta(minutes=2)
+    return 'Tunnet kuinka aurinko liikkuu väärään suuntaan. Päivä on pidentynyt kahdella minuutilla! Olet tanssinut aurinkotanssin!'
 
 
 @app.route("/api/scan", methods=['POST'])
@@ -343,6 +380,9 @@ def scan_tag():
     elif tags_table[barcode].get('hint'):
         current_pos = 'hint'
         table_setter(tags_table, barcode, 'hint', False)
+    elif tags_table[barcode].get('sun_dance_hint'):
+        current_pos = 'sun_dance_hint'
+        table_setter(tags_table, barcode, 'sun_dance_hint', False)
 
     if day_status == 'day' and all_food_collected():
         set_day_status('evening')
@@ -384,6 +424,8 @@ def scan_tag():
                 speak = f"tässä on {fruit_name(tag_data.get('food'))}, Missä on sen pari?"
             elif current_pos == 'hint':
                 speak = get_hint_text()
+            elif current_pos == 'sun_dance_hint':
+                speak = get_sun_dance_hint_text()
             elif not current_pos:
                 speak = "Tyhjä"
 
@@ -393,6 +435,15 @@ def scan_tag():
             speak = get_sauna_elf_speak()
     else:
         main_table['sauna_elf_counter'] = 0
+
+    if main_table['sun_dance_steps']:
+        if barcode == main_table['sun_dance_steps'][main_table['sun_dance_progress']]:
+            main_table['sun_dance_progress'] += 1
+            logger.debug(f"Sun dance progress: {main_table['sun_dance_progress']}")
+            if main_table['sun_dance_progress'] == len(main_table['sun_dance_steps']):
+                speak = get_success_sun_dance_speak()
+        else:
+            main_table['sun_dance_progress'] = 0
 
     return {
         'currentPos': current_pos,
@@ -428,6 +479,9 @@ def eat_food():
 
 ### Initialize
 
+main_table['sun_dance_steps'] = []
+main_table['sun_dance_progress'] = 0
+
 respawn_all_tags()
 main_table['inventory'] = []
 main_table['eaten_food'] = 0
@@ -435,5 +489,6 @@ main_table['eaten_food_today'] = 0
 main_table['last_tag'] = None
 main_table['sauna_elf_counter'] = 0
 main_table['sauna_elf_used'] = False
+
 
 set_day_status('day')
