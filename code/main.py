@@ -96,7 +96,7 @@ INITIAL_CODES = [
 ]
 
 
-DAY_LENGTH = datetime.timedelta(seconds=60 * 2)
+DAY_LENGTH = datetime.timedelta(seconds=60 * 3)
 NIGHT_LENGTH = datetime.timedelta(seconds=30)
 
 
