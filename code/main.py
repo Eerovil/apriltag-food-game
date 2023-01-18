@@ -536,6 +536,8 @@ def scan_tag():
                 speak = "Tyhjä"
 
         for elf_data, elf_tag in ELFS.items():
+            if main_table[f"{elf_data}_elf_used"]:
+                continue
             if barcode == elf_tag:
                 player_table[f'{elf_data}_elf_counter'] += 1
                 logger.debug(f"{elf_data} elf counter: {player_table[f'{elf_data}_elf_counter']}")
