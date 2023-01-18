@@ -515,7 +515,7 @@ def scan_tag():
         speak = "Nyt on ilta, on aika syödä iltapala"
     elif day_status == 'day':
         if tag_data:
-            tag_pair_event = check_tag_pair(barcode)
+            tag_pair_event = check_tag_pair(request, barcode)
 
         if tag_pair_event:
             speak = f"Löytyi pari! {fruit_name(tag_pair_event['food_slug'])}!"
