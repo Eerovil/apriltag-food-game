@@ -7,6 +7,7 @@ import random
 import logging
 from decimal import Decimal
 import hashlib
+import glob
 
 from typing import List, Optional
 from pydantic import BaseModel
@@ -20,7 +21,31 @@ logger.setLevel(logging.DEBUG)
 main_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="main", autocommit=True)
 tags_table = SqliteDict(os.path.join(data_folder, 'main.db'), tablename="tags", autocommit=True)
 
+player_tables = []
+
 FRUIT_SLUGS = ['watermelon', 'carrot', 'apple', 'sandvich', 'ananas', 'banana', 'strawberry']
+
+
+def initialize_table_key(table, key, value):
+    if key not in table:
+        table[key] = value
+
+
+def get_player_table(request):
+    ip_address = request.remote_addr
+    player_table = SqliteDict(os.path.join(data_folder, ip_address.replace('.', '_') + '.db'), tablename="main", autocommit=True)
+    for elf in ELFS.keys():
+        initialize_table_key(player_table, f'{elf}_elf_counter', 0)
+        initialize_table_key(player_table, f'{elf}_elf_used', False)
+
+    initialize_table_key(player_table, 'last_tag', None)
+
+    initialize_table_key(player_table, 'sun_dance_progress', 0)
+
+    player_tables.append(player_table)
+
+    return player_table
+
 
 def fruit_name(fruit_slug):
     return {
@@ -183,11 +208,13 @@ def respawn_all_tags(init=False):
     E.g. when day starts. respawn all foods or other items.
     Don't respawn tags that have food on them.
     """
-    for elf in ELFS.keys():
-        main_table[f'{elf}_elf_counter'] = 0
-        main_table[f'{elf}_elf_used'] = False
+    for player_table in player_tables:
+        for elf in ELFS.keys():
+            player_table[f'{elf}_elf_counter'] = 0
+            player_table[f'{elf}_elf_used'] = False
 
-    main_table['sun_dance_progress'] = 0
+        player_table['sun_dance_progress'] = 0
+        player_table['last_tag'] = None
 
     if not main_table['sun_dance_steps']:
         # Add 3 random points as sun dance steps
@@ -228,7 +255,7 @@ def respawn_all_tags(init=False):
     if len(empty_tags) % 2 == 1:
         empty_tags.pop()
 
-    available_fruits = FRUIT_SLUGS
+    available_fruits = list(FRUIT_SLUGS)
     # Remove fruits that are already spawned
     for tag in tags_table:
         if tags_table[tag].get('food') in available_fruits:
@@ -276,13 +303,14 @@ def all_food_collected():
     return True
 
 
-def check_tag_pair(new_tag):
+def check_tag_pair(request, new_tag):
     """
     If prev tag food is a match, add that food to inventory
     """
+    player_table = get_player_table(request)
     event = None
-    if main_table['last_tag'] and main_table['last_tag'] != new_tag:
-        prev_tag_data = tags_table[main_table['last_tag']]
+    if player_table['last_tag'] and player_table['last_tag'] != new_tag:
+        prev_tag_data = tags_table[player_table['last_tag']]
         new_tag_data = tags_table[new_tag]
         prev_food = prev_tag_data.get('food')
         new_food = new_tag_data.get('food')
@@ -290,7 +318,7 @@ def check_tag_pair(new_tag):
         if prev_food and new_food and prev_food == new_food:
             add_food_to_inventory(prev_food)
             add_food_to_inventory(prev_food)
-            clear_tag(main_table['last_tag'])
+            clear_tag(player_table['last_tag'])
             clear_tag(new_tag)
 
             event = {
@@ -299,7 +327,7 @@ def check_tag_pair(new_tag):
                 'point_name': point_names[new_tag],
             }
 
-    main_table['last_tag'] = new_tag
+    player_table['last_tag'] = new_tag
 
     return event
 
@@ -411,12 +439,14 @@ def get_elf_speak(elf_data):
     return ret + f'{elf_data} on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
 
 
-def get_success_sun_dance_speak():
+def get_success_sun_dance_speak(request):
     """
     Apply sun dance success and speak
     """
+    player_table = get_player_table(request)
     main_table['sun_dance_steps'] = []
-    main_table['sun_dance_progress'] = 0
+    player_table['sun_dance_progress'] = 0
+
     main_table['day_status_ending'] += datetime.timedelta(minutes=2)
     return 'Tunnet kuinka aurinko liikkuu väärään suuntaan. Päivä on pidentynyt kahdella minuutilla! Olet tanssinut aurinkotanssin!'
 
@@ -426,6 +456,8 @@ def scan_tag():
     barcode = request.json.get('content')
     if not barcode:
         return 'No barcode provided'
+
+    player_table = get_player_table(request)
 
     if barcode != 'dummy':
         if 'koodi' not in barcode:
@@ -500,25 +532,27 @@ def scan_tag():
             elif not current_pos:
                 speak = "Tyhjä"
 
-    for elf_data, elf_tag in ELFS.items():
-        if barcode == elf_tag:
-            main_table[f'{elf_data}_elf_counter'] += 1
-            logger.debug(f"{elf_data} elf counter: {main_table[f'{elf_data}_elf_counter']}")
-            if main_table[f'{elf_data}_elf_counter'] == 3:
-                speak = get_elf_speak(elf_data)
+        for elf_data, elf_tag in ELFS.items():
+            if barcode == elf_tag:
+                player_table[f'{elf_data}_elf_counter'] += 1
+                logger.debug(f"{elf_data} elf counter: {player_table[f'{elf_data}_elf_counter']}")
+                if player_table[f'{elf_data}_elf_counter'] == 3:
+                    speak = get_elf_speak(elf_data)
+                elif player_table[f'{elf_data}_elf_counter'] == 1:
+                    speak += ". Jotain vilahti, olikohan se tonttu? "
+                elif player_table[f'{elf_data}_elf_counter'] == 2:
+                    speak += ". Jotain vilahti taas, se oli varmasti tonttu! "
             else:
-                speak += ". Jotain vilahti, olikohan se tonttu? "
-        else:
-            main_table[f'{elf_data}_elf_counter'] = 0
+                player_table[f'{elf_data}_elf_counter'] = 0
 
     if main_table['sun_dance_steps']:
-        if barcode == main_table['sun_dance_steps'][main_table['sun_dance_progress']]:
-            main_table['sun_dance_progress'] += 1
-            logger.debug(f"Sun dance progress: {main_table['sun_dance_progress']}")
-            if main_table['sun_dance_progress'] == len(main_table['sun_dance_steps']):
-                speak = get_success_sun_dance_speak()
+        if barcode == main_table['sun_dance_steps'][player_table['sun_dance_progress']]:
+            player_table['sun_dance_progress'] += 1
+            logger.debug(f"Sun dance progress: {player_table['sun_dance_progress']}")
+            if player_table['sun_dance_progress'] == len(main_table['sun_dance_steps']):
+                speak = get_success_sun_dance_speak(request)
         else:
-            main_table['sun_dance_progress'] = 0
+            player_table['sun_dance_progress'] = 0
 
     return {
         'currentPos': current_pos,
@@ -554,18 +588,19 @@ def eat_food():
 
 ### Initialize
 
-main_table['sun_dance_steps'] = []
-main_table['sun_dance_progress'] = 0
+# Delete all *.db files in data_folder
+for file in os.listdir(data_folder):
+    if file.endswith(".db"):
+        if file == 'main.db':
+            continue
+        os.remove(os.path.join(data_folder, file))
 
 respawn_all_tags(init=True)
 main_table['inventory'] = []
 main_table['eaten_food'] = 0
 main_table['eaten_food_today'] = 0
-main_table['last_tag'] = None
-
-for elf in ELFS.keys():
-    main_table[f'{elf}_elf_counter'] = 0
-    main_table[f'{elf}_elf_used'] = False
-
 
 set_day_status('day')
+
+for tag in tags_table:
+    print(f"Tag: {tag}, food: {tags_table[tag].get('food')}")
