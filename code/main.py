@@ -226,6 +226,10 @@ def respawn_all_tags():
         if tags_table[tag].get('food') in available_fruits:
             available_fruits.remove(tags_table[tag].get('food'))
 
+    if len(available_fruits) == 0:
+        # Add one more fruit
+        available_fruits.append(random.choice(FRUIT_SLUGS))
+
     # Spawn pairs of fruits
     counter = 0
     for i in range(0, len(fruit_tags), 2):
