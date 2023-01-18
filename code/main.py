@@ -116,7 +116,11 @@ point_names = {
 }
 
 
-SAUNA_ELF = 'http://koodi-9'
+ELFS = {
+    'saunatonttu': 'http://koodi-9',
+    'vaatehuonetonttu': 'http://koodi-12',
+    'eteistonttu': 'http://koodi-1',
+}
 
 
 @app.route("/")
@@ -173,52 +177,55 @@ def get_day_status():
     return main_table['day_status'], main_table['day_status_ending'].isoformat()
 
 
-def respawn_all_tags():
+def respawn_all_tags(init=False):
     """
     E.g. when day starts. respawn all foods or other items.
     Don't respawn tags that have food on them.
     """
-    main_table['sauna_elf_used'] = False
-    main_table['sauna_elf_counter'] = 0
-    main_table['sun_dance_steps'] = []
+    for elf in ELFS.keys():
+        main_table[f'{elf}_elf_counter'] = 0
+        main_table[f'{elf}_elf_used'] = False
+
     main_table['sun_dance_progress'] = 0
 
-    # Add 3 random points as sun dance steps
-    sun_dance_steps = []
-    for i in range(3):
-        sun_dance_steps.append(random.choice(list(point_names.keys())))
-    main_table['sun_dance_steps'] = sun_dance_steps
+    if not main_table['sun_dance_steps']:
+        # Add 3 random points as sun dance steps
+        sun_dance_steps = []
+        for i in range(3):
+            sun_dance_steps.append(random.choice(list(point_names.keys())))
+        main_table['sun_dance_steps'] = sun_dance_steps
     logger.debug("Sun dance steps: %s", main_table['sun_dance_steps'])
 
-    fruit_tags = []
+    empty_tags = []
     for tag in point_names:
         if tags_table.get(tag) and tags_table[tag].get('food'):
             # Already has food, don't respawn
-            continue
+            if not init:
+                continue
         tag_data = {}
         tag_data['last_seen'] = datetime.datetime.now() - datetime.timedelta(days=1)
-        fruit_tags.append(tag)
+        empty_tags.append(tag)
         tags_table[tag] = tag_data
 
     # Randomize fruit tags
-    random.shuffle(fruit_tags)
+    random.shuffle(empty_tags)
 
     # Respawn hint
-    if len(fruit_tags) > 0:
-        table_setter(tags_table, fruit_tags[0], 'hint', True)
-        logger.debug("Hint respawned in tag %s", fruit_tags[0])
-        fruit_tags.pop(0)
+    if len(empty_tags) > 0:
+        table_setter(tags_table, empty_tags[0], 'hint', True)
+        logger.debug("Hint respawned in tag %s", empty_tags[0])
+        empty_tags.pop(0)
 
     if random.randint(0, 1) == 0:
         # 50% chance to respawn sun dance hint
-        if len(fruit_tags) > 0:
-            table_setter(tags_table, fruit_tags[0], 'sun_dance_hint', True)
-            logger.debug("Sun dance hint respawned in tag %s", fruit_tags[0])
-            fruit_tags.pop(0)
+        if len(empty_tags) > 0:
+            table_setter(tags_table, empty_tags[0], 'sun_dance_hint', True)
+            logger.debug("Sun dance hint respawned in tag %s", empty_tags[0])
+            empty_tags.pop(0)
 
-    # Make sure fruit_tags list is even
-    if len(fruit_tags) % 2 == 1:
-        fruit_tags.pop()
+    # Make sure empty_tags list is even
+    if len(empty_tags) % 2 == 1:
+        empty_tags.pop()
 
     available_fruits = FRUIT_SLUGS
     # Remove fruits that are already spawned
@@ -232,13 +239,13 @@ def respawn_all_tags():
 
     # Spawn pairs of fruits
     counter = 0
-    for i in range(0, len(fruit_tags), 2):
+    for i in range(0, len(empty_tags), 2):
         fruit_slug = available_fruits[counter % len(available_fruits)]
-        table_setter(tags_table, fruit_tags[i], 'food', fruit_slug)
-        table_setter(tags_table, fruit_tags[i + 1], 'food', fruit_slug)
+        table_setter(tags_table, empty_tags[i], 'food', fruit_slug)
+        table_setter(tags_table, empty_tags[i + 1], 'food', fruit_slug)
         counter += 1
 
-    logger.debug('Respawned all tags')
+    logger.debug('Respawned all tags: init: %s', init)
     main_table['last_tag'] = None
 
 
@@ -312,7 +319,24 @@ def get_hint_text():
         if tags_table[tag].get('food') == random_food and tag != random_tag:
             return 'Vihje: %s ja %s' % (point_names[random_tag], point_names[tag])
 
-    return 'Tyhjä'
+    return 'Ei mitään'
+
+
+def get_hint2_text():
+    """
+    Return a hint that contains three random food locations
+    """
+    tags = []
+    for tag in tags_table:
+        if tags_table[tag].get('food'):
+            tags.append(tag)
+
+    tags = random.sample(tags, 3)
+    ret = ""
+    for tag in tags:
+        ret += point_names[tag] + " on " + fruit_name(tags_table[tag]['food']) + ". "
+
+    return ret or 'Ei mitään'
 
 
 def get_sun_dance_hint_text():
@@ -321,27 +345,52 @@ def get_sun_dance_hint_text():
     """
     return (
         "Avaat vanhan näköisen pergamentin. Paperi on kellastunut ja kirjoitus on hauras. " +
-        "Olet löytänyt vanhan auringonpäivän tanssin ohjeen. Käy järjestyksessä: " +
+        "Olet löytänyt vanhan auringonpäivän tanssin ohjeen. Piippaa järjestyksessä: " +
         (", ".join([point_names[_tag] for _tag in main_table['sun_dance_steps']]))
     )
 
 
-def get_sauna_elf_speak():
+def get_elf_speak(elf_data):
     rand = random.randint(1, 5)
-    if main_table['sauna_elf_used']:
-        return 'Saunatonttu on lähtenyt. Yritä huomenna uudelleen.'
-    main_table['sauna_elf_used'] = True
+    if main_table[f'{elf_data}_elf_used']:
+        return f'{elf_data} on lähtenyt. Yritä huomenna uudelleen.'
+    main_table[f'{elf_data}_elf_used'] = True
 
-    ret = 'Herätit saunatontun. '
-    if rand == 1:
+    ret = f'Herätit {elf_data}. '.replace('tonttu', 'tontun')
+
+    result = 'nothing'
+    if elf_data == 'saunatonttu':
+        if rand == 1:
+            result = 'lose_food'
+        if rand >= 3:
+            result = 'hint'
+    elif elf_data == 'vaatehuonetonttu':
+        if rand <= 2:
+            result = 'lose_food'
+        if rand >= 3:
+            result = 'hint2'
+    elif elf_data == 'eteistonttu':
+        if rand == 1:
+            result = 'lose_food'
+        if rand >= 4:
+            result = 'sun_dance_hint'
+
+    if result == 'lose_food':
         # 20% change to lose food
         main_table['inventory'] = []
-        return ret + 'Saunatonttu on vihainen ja syö kaiken ruuan. Yritä huomenna uudelleen.'
-    if rand == 2:
-        # 20% change to nothing happen
-        return ret + 'Saunatonttu on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
-    
-    return ret + 'Saunatonttu antaa sinulle vihjeen. ' + get_hint_text()
+        return ret + f'{elf_data} on vihainen ja syö kaiken ruuan. Yritä huomenna uudelleen.'
+    if result == 'hint':
+        return ret + f'{elf_data} antaa sinulle vihjeen. ' + get_hint_text()
+    if result == 'hint2':
+        return ret + f'{elf_data} paljastaa olinpaikkoja. ' + get_hint2_text()
+    if result == 'sun_dance_hint':
+        return (
+            ret + f'{elf_data} kertoo sinulle aurinkotanssin ohjeen. ' + "Piippaa järjestyksessä: " +
+            (", ".join([point_names[_tag] for _tag in main_table['sun_dance_steps']]))
+        )
+
+    # 20% change to nothing happen
+    return ret + f'{elf_data} on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
 
 
 def get_success_sun_dance_speak():
@@ -433,12 +482,14 @@ def scan_tag():
             elif not current_pos:
                 speak = "Tyhjä"
 
-    if barcode == SAUNA_ELF:
-        main_table['sauna_elf_counter'] += 1
-        if main_table['sauna_elf_counter'] == 3:
-            speak = get_sauna_elf_speak()
-    else:
-        main_table['sauna_elf_counter'] = 0
+    for elf_data, elf_tag in ELFS.items():
+        if barcode == elf_tag:
+            main_table[f'{elf_data}_elf_counter'] += 1
+            logger.debug(f"{elf_data} elf counter: {main_table[f'{elf_data}_elf_counter']}")
+            if main_table[f'{elf_data}_elf_counter'] == 3:
+                speak = get_elf_speak(elf_data)
+        else:
+            main_table[f'{elf_data}_elf_counter'] = 0
 
     if main_table['sun_dance_steps']:
         if barcode == main_table['sun_dance_steps'][main_table['sun_dance_progress']]:
@@ -486,13 +537,15 @@ def eat_food():
 main_table['sun_dance_steps'] = []
 main_table['sun_dance_progress'] = 0
 
-respawn_all_tags()
+respawn_all_tags(init=True)
 main_table['inventory'] = []
 main_table['eaten_food'] = 0
 main_table['eaten_food_today'] = 0
 main_table['last_tag'] = None
-main_table['sauna_elf_counter'] = 0
-main_table['sauna_elf_used'] = False
+
+for elf in ELFS.keys():
+    main_table[f'{elf}_elf_counter'] = 0
+    main_table[f'{elf}_elf_used'] = False
 
 
 set_day_status('day')
