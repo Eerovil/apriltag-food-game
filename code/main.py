@@ -212,6 +212,7 @@ def respawn_all_tags(init=False):
         for elf in ELFS.keys():
             player_table[f'{elf}_elf_counter'] = 0
             player_table[f'{elf}_elf_used'] = False
+            main_table[f'{elf}_elf_used'] = False
 
         player_table['sun_dance_progress'] = 0
         player_table['last_tag'] = None
