@@ -120,6 +120,7 @@ ELFS = {
     'saunatonttu': 'http://koodi-9',
     'vaatehuonetonttu': 'http://koodi-12',
     'eteistonttu': 'http://koodi-1',
+    'telkkaritonttu': 'http://koodi-6',
 }
 
 
@@ -350,6 +351,19 @@ def get_sun_dance_hint_text():
     )
 
 
+def get_joke_text():
+    """
+    Return a random joke
+    """
+    JOKES = [
+        "Miksi joulupukki ei anna apulaistensa valjastaa poroa? Koska ne ovat aivan tonttuja.",
+        "Mikä on suurempi kuin joulukuusi? Jouluseitsemän.",
+        "Mihin joulu päättyy? U-kirjaimeen. ",
+        "Mitä tapahtui tontulle joka hukkasi lakkinsa? Siltä jäätyi korva tunturilla.",
+    ]
+    return random.choice(JOKES)
+
+
 def get_elf_speak(elf_data):
     rand = random.randint(1, 5)
     if main_table[f'{elf_data}_elf_used']:
@@ -374,6 +388,8 @@ def get_elf_speak(elf_data):
             result = 'lose_food'
         if rand >= 4:
             result = 'sun_dance_hint'
+    elif elf_data == 'telkkaritonttu':
+        result = 'joke'
 
     if result == 'lose_food':
         # 20% change to lose food
@@ -388,6 +404,8 @@ def get_elf_speak(elf_data):
             ret + f'{elf_data} kertoo sinulle aurinkotanssin ohjeen. ' + "Piippaa järjestyksessä: " +
             (", ".join([point_names[_tag] for _tag in main_table['sun_dance_steps']]))
         )
+    if result == 'joke':
+        return f'{elf_data} kertoo vitsin: ' + get_joke_text() + " Heh heh! Olipas hauskaa!"
 
     # 20% change to nothing happen
     return ret + f'{elf_data} on tänään väsynyt ja ei sano mitään. Yritä huomenna uudelleen.'
@@ -488,6 +506,8 @@ def scan_tag():
             logger.debug(f"{elf_data} elf counter: {main_table[f'{elf_data}_elf_counter']}")
             if main_table[f'{elf_data}_elf_counter'] == 3:
                 speak = get_elf_speak(elf_data)
+            else:
+                speak += ". Jotain vilahti, olikohan se tonttu? "
         else:
             main_table[f'{elf_data}_elf_counter'] = 0
 
