@@ -208,11 +208,13 @@ def respawn_all_tags(init=False):
     E.g. when day starts. respawn all foods or other items.
     Don't respawn tags that have food on them.
     """
+    for elf in ELFS.keys():
+        main_table[f'{elf}_elf_used'] = False
+
     for player_table in player_tables:
         for elf in ELFS.keys():
             player_table[f'{elf}_elf_counter'] = 0
             player_table[f'{elf}_elf_used'] = False
-            main_table[f'{elf}_elf_used'] = False
 
         player_table['sun_dance_progress'] = 0
         player_table['last_tag'] = None
