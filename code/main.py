@@ -537,12 +537,10 @@ def scan_tag():
             if barcode == elf_tag:
                 player_table[f'{elf_data}_elf_counter'] += 1
                 logger.debug(f"{elf_data} elf counter: {player_table[f'{elf_data}_elf_counter']}")
-                if player_table[f'{elf_data}_elf_counter'] == 3:
+                if player_table[f'{elf_data}_elf_counter'] == 2:
                     speak = get_elf_speak(elf_data)
                 elif player_table[f'{elf_data}_elf_counter'] == 1:
                     speak += ". Jotain vilahti, olikohan se tonttu? "
-                elif player_table[f'{elf_data}_elf_counter'] == 2:
-                    speak += ". Jotain vilahti taas, se oli varmasti tonttu! "
             else:
                 player_table[f'{elf_data}_elf_counter'] = 0
 
