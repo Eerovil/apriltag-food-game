@@ -610,6 +610,9 @@ def speakcommand():
     command = (request.json.get('command', '') or '').lower()
     speak = "En tiedä mitä tarkoittaa " + command
 
+    player_table = get_player_table(request)
+    last_tag = player_table['last_tag']
+
     if "vihje" in command:
         speak = get_hint_text()
 
@@ -623,6 +626,8 @@ def speakcommand():
 
         if fruit_to_find:
             for tag_id, tag_data in tags_table.items():
+                if tag_id == last_tag:
+                    continue
                 if tag_data.get('food') == fruit_to_find:
                     speak = f"{fruit_name(fruit_to_find)} on {point_names[tag_id]}"
                     break
