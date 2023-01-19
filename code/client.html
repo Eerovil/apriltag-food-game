@@ -60,6 +60,15 @@
         justify-content: center;
         align-items: center;
       }
+      svg {
+        width: 100%;
+        height: 100%;
+      }
+      .speech-recognition {
+        width: 4rem;
+        margin-top: auto !important;
+        margin-bottom: 5rem !important;
+      }
     </style>
   </head>
   <body>
@@ -99,7 +108,20 @@
        </p>
 
     </div>
+    
     <script type="text/javascript">
+      const SpeechRecognition = window.SpeechRecognition || webkitSpeechRecognition;
+      const SpeechRecognitionEvent = window.SpeechRecognitionEvent || webkitSpeechRecognitionEvent;
+      
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'fi-FI';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      const diagnostic = document.querySelector('.output');
+      const bg = document.querySelector('html');
+
       let context = null;
 
       const beep = (freq = 320, duration = 100, vol = 5) => {
@@ -176,6 +198,10 @@
           </div>
         </div>
         <div v-if="speakText">{{ speakText }}</div>
+        <div class="speech-recognition" @click="startRecognition">
+          <div v-if="recognizingSpeech"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>microphone</title><path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" /></svg></div>
+          <div v-else><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>microphone-outline</title><path d="M17.3,11C17.3,14 14.76,16.1 12,16.1C9.24,16.1 6.7,14 6.7,11H5C5,14.41 7.72,17.23 11,17.72V21H13V17.72C16.28,17.23 19,14.41 19,11M10.8,4.9C10.8,4.24 11.34,3.7 12,3.7C12.66,3.7 13.2,4.24 13.2,4.9L13.19,11.1C13.19,11.76 12.66,12.3 12,12.3C11.34,12.3 10.8,11.76 10.8,11.1M12,14A3,3 0 0,0 15,11V5A3,3 0 0,0 12,2A3,3 0 0,0 9,5V11A3,3 0 0,0 12,14Z" /></svg></div>
+        </div>
     </template>
     <script>
       const { createApp } = Vue;
@@ -207,6 +233,8 @@
 
             eatingLoop: null,
             eatingCurrently: false,
+
+            recognizingSpeech: false,
           }
         },
         computed: {
@@ -232,9 +260,37 @@
         mounted() {
           window.vueHandleDetected = this.handleDetected
           this.dayStatusHandler();
-          this.handleDetected(`dummy`)
+          this.handleDetected(`dummy`);
+        
+          recognition.onresult = (event) => {
+            this.handleRecognitionResult(event);
+          }
+          recognition.onend = () => {
+            this.recognizingSpeech = false;
+          }
         },
         methods: {
+          handleRecognitionResult(event) {
+            this.recognizingSpeech = false;
+            const result = event.results[0][0].transcript;
+            console.log('Result', result);
+            axios.post('/api/speakcommand', {command: result})
+              .then((response) => {
+                if (response.data.speak) {
+                  const speakText = response.data.speak;
+                  const event = new CustomEvent('speak', { detail: speakText });
+                  window.document.dispatchEvent(event);
+                  this.speakText = speakText;
+                }
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          },
+          startRecognition() {
+            recognition.start();
+            this.recognizingSpeech = true;
+          },
           startEatingLoop() {
             if (this.eatingLoop) {
               return;

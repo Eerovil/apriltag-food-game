@@ -454,6 +454,23 @@ def get_success_sun_dance_speak(request):
     return 'Tunnet kuinka aurinko liikkuu väärään suuntaan. Päivä on pidentynyt kahdella minuutilla! Olet tanssinut aurinkotanssin!'
 
 
+def get_current_time():
+    """
+    Return current time as something like "5 yli 6" or "puoli 7"
+    """
+    now = datetime.datetime.now()
+    hour = now.hour % 12
+    if now.minute < 5:
+        return '%d' % hour
+    if now.minute > 55:
+        return '%d' % (hour + 1)
+    if now.minute < 25:
+        return "%d:ttä yli %d" % (now.minute, hour)
+    if now.minute > 35:
+        return "%d:ttä vaille %d" % (60 - now.minute, hour + 1)
+    return "puoli %d" % (hour + 1)
+
+
 @app.route("/api/scan", methods=['POST'])
 def scan_tag():
     barcode = request.json.get('content')
@@ -587,6 +604,50 @@ def eat_food():
         'collectedFruits': main_table['inventory'],
     }
 
+
+@app.route("/api/speakcommand", methods=['POST'])
+def speakcommand():
+    command = (request.json.get('command', '') or '').lower()
+    speak = "En tiedä mitä tarkoittaa " + command
+
+    if "vihje" in command:
+        speak = get_hint_text()
+
+    if "missä on" in command:
+        fruit_to_find = None
+        for fruit_slug in FRUIT_SLUGS:
+            _fruit_name = fruit_name(fruit_slug).lower()
+            if _fruit_name in command:
+                fruit_to_find = fruit_slug
+                break
+
+        if fruit_to_find:
+            for tag_id, tag_data in tags_table.items():
+                if tag_data.get('food') == fruit_to_find:
+                    speak = f"{fruit_name(fruit_to_find)} on {point_names[tag_id]}"
+                    break
+            else:
+                speak = f"{fruit_name(fruit_to_find)} on loppunut"
+
+        for elf_name, elf_tag in ELFS.items():
+            if elf_name.lower() in command or elf_name.lower() in command.replace(' ', ''):
+                speak = f"{elf_name} on {point_names[elf_tag]}"
+                break
+
+    if "kello" in command:
+        speak = get_current_time() + ". "
+        if main_table['day_status'] == 'day':
+            seconds = int((main_table['day_status_ending'] - datetime.datetime.now()).total_seconds())
+            if seconds > 60:
+                speak += "Päivää on jäljellä " + str(int(seconds / 60)) + " minuutti"
+                if seconds > 120:
+                    speak += "a"
+            else:
+                speak += "Päivää on jäljellä " + str(int(seconds)) + " sekuntia"
+
+    return {
+        "speak": speak
+    }
 
 
 ### Initialize
